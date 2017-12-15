@@ -1,0 +1,20 @@
+{
+  "name": "transaction-manager",
+  "version": "1.0.0",
+  "description": "Simple transaction manager for json messages",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/index.js",
+    "dist": "browserify --standalone TransactionManager index.js -o dist/transaction-manager.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/medooze/transaction-manager.git"
+  },
+  "author": "Sergio Garcia Murillo",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/medooze/transaction-manager/issues"
+  },
+  "homepage": "https://github.com/medooze/transaction-manager#readme"
+}
