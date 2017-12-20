@@ -4,8 +4,16 @@ const TransactionManager = require("../index.js");
 const t1 = {};
 const t2 = {};
 
+t1.addEventListener = function(name,handler) {
+	t1["on"+name] = handler;
+};
+t2.addEventListener = function(name,handler) {
+	t2["on"+name] = handler;
+};
+
 var tm1 = new TransactionManager(t1);
 var tm2 = new TransactionManager(t2);
+
 
 t1.send = function(msg) { t2.onmessage(msg); };
 t2.send = function(msg) { t1.onmessage(msg); };
@@ -37,7 +45,8 @@ tm1.cmd("accept")
 	
 console.log("t1::sending reject cmd");
 tm1.cmd("reject")
-	.catch(() => {
+	.catch((error) => {
+		console.error(error);
 		console.log("t1::command rejected");
 	});
 	

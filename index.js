@@ -11,7 +11,7 @@ class TransactionManager extends EventEmitter
 		this.transport = transport;
 		
 		//Add event
-		this.transport.onmessage = (str) => {
+		this.transport.addEventListener("message" , (str) => {
 			//Process message
 			var message = JSON.parse (str);
 
@@ -68,8 +68,7 @@ class TransactionManager extends EventEmitter
 					this.emit("event",event);
 					break;
 			}
-		};
-		
+		});
 	}
 	
 	cmd(name,data) 
