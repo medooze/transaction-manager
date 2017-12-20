@@ -10,10 +10,10 @@ class TransactionManager extends EventEmitter
 		this.transactions = new Map();
 		this.transport = transport;
 		
-		//Add event
-		this.transport.addListener("message", (msg) => {
+		//Message event listener
+		var listener = (msg) => {
 			//Process message
-			var message = JSON.parse(msg.data || msg.utf8Data);
+			var message = JSON.parse(msg.utf8Data || msg.data);
 
 			//Check type
 			switch(message.type)
@@ -68,7 +68,10 @@ class TransactionManager extends EventEmitter
 					this.emit("event",event);
 					break;
 			}
-		});
+		};
+		
+		//Add it
+		this.transport.addListener ? this.transport.addListener("message",listener) : this.transport.addEventListener("message",listener);
 	}
 	
 	cmd(name,data) 
