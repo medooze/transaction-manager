@@ -15,8 +15,16 @@ var tm1 = new TransactionManager(t1);
 var tm2 = new TransactionManager(t2);
 
 
-t1.send = function(msg) { t2.onmessage(msg); };
-t2.send = function(msg) { t1.onmessage(msg); };
+t1.send = function(msg) {
+	t2.onmessage({
+		data: msg
+	});
+};
+t2.send = function(msg) { 
+	t1.onmessage({
+		data: msg
+	});
+};
 
 tm2.on("cmd",(cmd)=> {
 	console.log("t2::got command", cmd.name);
