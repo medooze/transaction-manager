@@ -16,11 +16,13 @@ var tm2 = new TransactionManager(t2);
 
 
 t1.send = function(msg) {
+	console.log(msg);
 	t2.onmessage({
 		data: msg
 	});
 };
 t2.send = function(msg) { 
+	console.log(msg);
 	t1.onmessage({
 		data: msg
 	});
@@ -32,7 +34,7 @@ tm2.on("cmd",(cmd)=> {
 	{
 		case "accept" :
 			console.log("t2::sending event 1");
-			tm2.event("event1");
+			tm2.event("event1",{ dummy: 2});
 			cmd.accept("accepted");
 			break;
 		case "reject" :
@@ -46,7 +48,7 @@ tm1.on("event",(event) => {
 });
 
 console.log("t1::sending accept cmd");
-tm1.cmd("accept")
+tm1.cmd("accept", { dummy: 1})
 	.then(() => {
 		console.log("t1::command accepted");
 	});
