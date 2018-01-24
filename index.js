@@ -1,5 +1,25 @@
 "use strict";
  const EventEmitter = require('events');
+ 
+class Namespace extends EventEmitter
+{
+	constructor(namespace,tm)
+	{
+		super();
+		this.namespace = namespace;
+		this.tm = tm;
+	}
+	
+	cmd(name,data) 
+	{
+		return this.tm.cmd(name,data,this.namespace);
+	}
+	
+	event(name,data) 
+	{
+		return this.tm.cmd(name,data,this.namespace);
+	}
+};
 
 class TransactionManager extends EventEmitter
 {
@@ -7,6 +27,7 @@ class TransactionManager extends EventEmitter
 	{
 		super();
 		this.maxId = 0;
+		this.namespaces = new Map();
 		this.transactions = new Map();
 		this.transport = transport;
 		
@@ -21,9 +42,10 @@ class TransactionManager extends EventEmitter
 				case "cmd" :
 					//Create command
 					const cmd = {
-						name	: message.name,
-						data	: message.data,
-						accept	: (data) => {
+						name		: message.name,
+						data		: message.data,
+						namespace	: message.namespace,
+						accept		: (data) => {
 							//Send response back
 							transport.send(JSON.stringify ({
 								type	 : "response",
@@ -42,8 +64,23 @@ class TransactionManager extends EventEmitter
 							}));
 						}
 					};
-					//Launch event
-					this.emit("cmd",cmd);
+					
+					//If it has a namespace
+					if (cmd.namespace)
+					{
+						//Get namespace
+						const namespace = this.namespaces.get(cmd.namespace);
+						//If we have it
+						if (namespace)
+							//trigger event only on namespace
+							namespace.emit("cmd",cmd);
+						else
+							//Launch event on main event handler
+							this.emit("cmd",cmd);
+					} else {
+						//Launch event on main event handler
+						this.emit("cmd",cmd);
+					}
 					break;
 				case "response":
 					//Get transaction
@@ -66,6 +103,22 @@ class TransactionManager extends EventEmitter
 					};
 					//Launch event
 					this.emit("event",event);
+					//If it has a namespace
+					if (event.namespace)
+					{
+						//Get namespace
+						var namespace = this.namespaces.get(event.namespace);
+						//If we have it
+						if (namespace)
+							//trigger event
+							namespace.emit("event",event);
+						else
+							//Launch event on main event handler
+							this.emit("event",event);
+					} else {
+						//Launch event on main event handler
+						this.emit("event",event);
+					}
 					break;
 			}
 		};
@@ -74,7 +127,7 @@ class TransactionManager extends EventEmitter
 		this.transport.addListener ? this.transport.addListener("message",listener) : this.transport.addEventListener("message",listener);
 	}
 	
-	cmd(name,data) 
+	cmd(name,data,namespace) 
 	{
 		return new Promise((resolve,reject) => {
 			//Check name is correct
@@ -88,6 +141,10 @@ class TransactionManager extends EventEmitter
 				name	: name,
 				data	: data
 			};
+			//Check namespace
+			if (namespace)
+				//Add it
+				cmd.namespace = namespace;
 			//Serialize
 			const json = JSON.stringify(cmd);
 			//Add callbacks
@@ -105,11 +162,10 @@ class TransactionManager extends EventEmitter
 				//rethrow
 				throw e;
 			}
-			
 		});
 	}
 	
-	event(name,data) 
+	event(name,data,namespace) 
 	{
 		//Check name is correct
 		if (!name || name.length===0)
@@ -121,11 +177,30 @@ class TransactionManager extends EventEmitter
 			name	: name,
 			data	: data
 		};
+		//Check namespace
+		if (namespace)
+			//Add it
+			event.namespace = namespace;
 		//Serialize
 		const json = JSON.stringify(event);
 		//Send json
 		this.transport.send(json);
 
+	}
+	
+	namespace(ns)
+	{
+		//Check if we already have them
+		let namespace = this.namespaces.get(ns);
+		//If already have it
+		if (namespace) return namespace;
+		//Create one instead
+		namespace = new Namespace(ns,this);
+		//Store it
+		this.namespaces.set(ns, namespace);
+		//ok
+		return namespace;
+		
 	}
 };
 

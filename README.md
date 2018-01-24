@@ -46,6 +46,32 @@ tm.event("event_name");
 
 ```
 
+### Namespacing
+
+It is possible to provide a `namespace` attribute the command and events so you can route them easily between different listeners.
+
+You can either provide a third parameter to the `cmd(name,data,namespace)` and `event(name,data,namespace)` or create a `Namespace` object that will handle internals for you on both sending and receiving:
+
+```
+
+var ns1 = tm1.namespace("ns");
+var ns2 = tm2.namespace("ns");
+
+ns2.on("cmd",(cmd)=> {
+	console.log("ns2::got command", cmd.name);
+	cmd.accept("accepted");
+});
+
+
+ns1.cmd("test_namespace", { dummy: 1})
+	.then(() => {
+		console.log("ns1::command accepted");
+	})
+	.catch(console.error);
+	
+```
+
+Note that if a namespace has been created for a received message, the event will not be emited to the main `TransactionManager` object but only to the registered `Namespace`
 
 ## Wire protocol
 The transaction manager uses a JSON based message format to exchange data between both ends (using WebSockets for example).

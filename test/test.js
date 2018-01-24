@@ -40,6 +40,8 @@ tm2.on("cmd",(cmd)=> {
 		case "reject" :
 			cmd.reject("reject");
 			break;
+		default:
+			console.error("we should not get here");
 	}
 });
 
@@ -59,4 +61,21 @@ tm1.cmd("reject")
 		console.error(error);
 		console.log("t1::command rejected");
 	});
+
+var ns1 = tm1.namespace("ns");
+var ns2 = tm2.namespace("ns");
+
+
+ns2.on("cmd",(cmd)=> {
+	console.log("ns2::got command", cmd.name);
+	cmd.accept("accepted");
+});
+
+
+console.log("ns1::sending test_namespace cmd");
+ns1.cmd("test_namespace", { dummy: 1})
+	.then(() => {
+		console.log("ns1::command accepted");
+	})
+	.catch(console.error);
 	
