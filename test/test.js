@@ -71,6 +71,9 @@ ns2.on("cmd",(cmd)=> {
 	cmd.accept("accepted");
 });
 
+ns2.on("event",(event)=> {
+	console.log("ns2::got event", event.name);
+});
 
 console.log("ns1::sending test_namespace cmd");
 ns1.cmd("test_namespace", { dummy: 1})
@@ -79,3 +82,5 @@ ns1.cmd("test_namespace", { dummy: 1})
 	})
 	.catch(console.error);
 	
+console.log("ns1::sending test_namespace event");
+ns1.event("test_namespace", { evt: 1});

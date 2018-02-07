@@ -106,7 +106,7 @@ Appart of the cmd attribute, it also contain the following attributes:
 - data  (String | Date | Array | Object) : custom command data
 
 ### Response message
-The command message is a json object which type is “response”. It is used to reply a command send by the other peer, either accepting or rejecting it and pass some custom data associated to the response.
+The command message is a json object which type is “response”. It is used to accept a command sent by the other peer and pass some custom data associated to the response.
 
 Apart of the cmd attribute, it also contain the following attributes:
 
@@ -114,17 +114,33 @@ Apart of the cmd attribute, it also contain the following attributes:
 {
 	"type"    : "response",
 	"transId" : 0,
-	"accepted": true,
 	"data"    : ...
 }
 ```
 
 - type (String): “response”
 - transId (Integer) : value from the command this response belongs to
-- accepted (Boolean): if the command was successful or not.
 - data  (String | Date | Array | Object) : custom response data
 
-For each command, there must be a single response message matching the transaction id of the command.
+### Error message
+The command message is a json object which type is “error”. It is used to reject a command sent by the other peer and pass some custom data associated to the error.
+
+Apart of the cmd attribute, it also contain the following attributes:
+
+```
+{
+	"type"    : "error",
+	"transId" : 0,
+	"data"    : ...
+}
+```
+
+- type (String): “error”
+- transId (Integer) : value from the command this error belongs to
+- data  (String | Date | Array | Object) : custom error data
+
+
+For each command, there must be a single response or error message matching the transaction id of the command.
 
 ### Event message
 Event messages are used when the sending side does not expect any kind of response back and has a type of “event”. It has the following attributes:

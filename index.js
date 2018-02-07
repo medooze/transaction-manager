@@ -17,7 +17,7 @@ class Namespace extends EventEmitter
 	
 	event(name,data) 
 	{
-		return this.tm.cmd(name,data,this.namespace);
+		return this.tm.event(name,data,this.namespace);
 	}
 };
 
@@ -50,16 +50,14 @@ class TransactionManager extends EventEmitter
 							transport.send(JSON.stringify ({
 								type	 : "response",
 								transId	 : message.transId,
-								accepted : true,
 								data	 : data
 							}));
 						},
 						reject	: (data) => {
 							//Send response back
 							transport.send(JSON.stringify ({
-								type	 : "response",
+								type	 : "error",
 								transId	 : message.transId,
-								accepted : false,
 								data	 : data
 							}));
 						}
@@ -83,26 +81,36 @@ class TransactionManager extends EventEmitter
 					}
 					break;
 				case "response":
+				{
 					//Get transaction
 					const transaction = this.transactions.get(message.transId);
 					if (!transaction)
 						return;
 					//delete transacetion
 					this.transactions.delete(message.transId);
-					if (message.accepted)
-						transaction.resolve(message.data);
-					else
-						transaction.reject(message.data);
-					
+					//Accept
+					transaction.resolve(message.data);
 					break;
+				}
+				case "error":
+				{
+					//Get transaction
+					const transaction = this.transactions.get(message.transId);
+					if (!transaction)
+						return;
+					//delete transacetion
+					this.transactions.delete(message.transId);
+					//Reject
+					transaction.reject(message.data);
+					break;
+				}
 				case "event":
 					//Create event
 					const event = {
-						name	: message.name,
-						data	: message.data,
+						name		: message.name,
+						data		: message.data,
+						namespace	: message.namespace,
 					};
-					//Launch event
-					this.emit("event",event);
 					//If it has a namespace
 					if (event.namespace)
 					{
