@@ -324,6 +324,11 @@ class Namespace extends EventEmitter
 	{
 		return this.tm.event(name,data,this.namespace);
 	}
+	
+	close()
+	{
+		return this.tm.namespaces.delete(this.namespace);
+	}
 };
 
 class TransactionManager extends EventEmitter
@@ -337,7 +342,7 @@ class TransactionManager extends EventEmitter
 		this.transport = transport;
 		
 		//Message event listener
-		var listener = (msg) => {
+		this.listener = (msg) => {
 			//Process message
 			var message = JSON.parse(msg.utf8Data || msg.data);
 
@@ -412,11 +417,10 @@ class TransactionManager extends EventEmitter
 				case "event":
 					//Create event
 					const event = {
-						name	: message.name,
-						data	: message.data,
+						name		: message.name,
+						data		: message.data,
+						namespace	: message.namespace,
 					};
-					//Launch event
-					this.emit("event",event);
 					//If it has a namespace
 					if (event.namespace)
 					{
@@ -438,7 +442,7 @@ class TransactionManager extends EventEmitter
 		};
 		
 		//Add it
-		this.transport.addListener ? this.transport.addListener("message",listener) : this.transport.addEventListener("message",listener);
+		this.transport.addListener ? this.transport.addListener("message",this.listener) : this.transport.addEventListener("message",this.listener);
 	}
 	
 	cmd(name,data,namespace) 
@@ -515,6 +519,16 @@ class TransactionManager extends EventEmitter
 		//ok
 		return namespace;
 		
+	}
+	
+	close()
+	{
+		//Erase namespaces
+		for (const ns of this.namespace.values())
+			//terminate it
+			ns.close();
+		//remove lisnters
+		this.transport.removeListener ? this.transport.removeListener("message",this.listener) : this.transport.removeEventListener("message",this.listener);
 	}
 };
 
