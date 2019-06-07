@@ -219,7 +219,7 @@ class TransactionManager extends EventEmitter
 	close()
 	{
 		//Erase namespaces
-		for (const ns of this.namespace.values())
+		for (const ns of this.namespaces.values())
 			//terminate it
 			ns.close();
 		//remove lisnters
