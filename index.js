@@ -38,8 +38,16 @@ class TransactionManager extends EventEmitter
 		
 		//Message event listener
 		this.listener = (msg) => {
-			//Process message
-			var message = JSON.parse(msg.utf8Data || msg.data);
+			let message;
+			
+			try {
+				//Process message
+				message = JSON.parse(msg.utf8Data || msg.data);
+			} catch(e) {
+				//Emit it
+				//Ignore it
+				return;
+			}
 
 			//Check type
 			switch(message.type)
