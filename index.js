@@ -42,7 +42,7 @@ class TransactionManager extends EventEmitter
 			
 			try {
 				//Process message
-				message = JSON.parse(msg.utf8Data || msg.data);
+				message = JSON.parse(msg.utf8Data || msg.data || msg);
 			} catch(e) {
 				//Emit it
 				//Ignore it
