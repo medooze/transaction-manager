@@ -1,15 +1,15 @@
 # transaction-manager
 Simple transaction manager for json messages
 
-## Instalation
+## Installation
 
-```
+``` bash
 npm install --save transaction-manager
 ```
 
 ## Usage example
 
-```
+``` js
 const TransactionManager = require("../index.js");
 
 //Use websocket as transport
@@ -43,7 +43,6 @@ tm.cmd("cmd_name", cmd_data)
 	});
 
 tm.event("event_name");
-
 ```
 
 ### Namespacing
@@ -52,8 +51,7 @@ It is possible to provide a `namespace` attribute the command and events so you 
 
 You can either provide a third parameter to the `cmd(name,data,namespace)` and `event(name,data,namespace)` or create a `Namespace` object that will handle internals for you on both sending and receiving:
 
-```
-
+``` js
 var ns1 = tm1.namespace("ns");
 var ns2 = tm2.namespace("ns");
 
@@ -78,7 +76,7 @@ The transaction manager uses a JSON based message format to exchange data betwee
 
 The base message will be a json object with a type property:
 
-```
+``` json
 {
 	"type" : "cmd"
 }
@@ -91,7 +89,7 @@ The command message is a json object which type is “cmd”.It is used when the
 
 Appart of the cmd attribute, it also contain the following attributes:
 
-```
+``` json
 {
 	"type"   : "cmd",
 	"transId": 0,
@@ -110,7 +108,7 @@ The command message is a json object which type is “response”. It is used to
 
 Apart of the cmd attribute, it also contain the following attributes:
 
-```
+``` json
 {
 	"type"    : "response",
 	"transId" : 0,
@@ -127,7 +125,7 @@ The command message is a json object which type is “error”. It is used to re
 
 Apart of the cmd attribute, it also contain the following attributes:
 
-```
+``` json
 {
 	"type"    : "error",
 	"transId" : 0,
@@ -145,7 +143,7 @@ For each command, there must be a single response or error message matching the 
 ### Event message
 Event messages are used when the sending side does not expect any kind of response back and has a type of “event”. It has the following attributes:
 
-```
+``` json
 {
 	"type": "event",
 	"name": "event_name",
@@ -162,3 +160,4 @@ Note that the event message does not have any transaction id as it is not meant 
 ## License
 
 MIT
+
