@@ -1,21 +1,161 @@
 "use strict";
- const EventEmitter = require('events');
- 
+const { TypedEmitter: EventEmitter } = require('tiny-typed-emitter');
+
+
+// WIRE PROTOCOL
+
+/**
+ * @typedef {(
+ *     CommandWireMessage |
+ *     ResponseWireMessage |
+ *     EventWireMessage
+ * )} WireMessage
+ *
+ * messages sent or received by {@link TransactionManager} through the underlying
+ * transport are UTF-8 encoded JSON objects of this shape. this is an internal type,
+ * and you won't need it unless you're writing your own version of `transaction-manager`.
+ */
+
+/**
+ * @typedef {Object} CommandWireMessage
+ * @property {"cmd"} type
+ * @property {string} [namespace]
+ * @property {string} name
+ * @property {unknown} data
+ * @property {number} transId
+ */
+
+/**
+ * @typedef {Object} ResponseWireMessage
+ * @property {"error" | "response"} type
+ * @property {unknown} data
+ * @property {number} transId
+ */
+
+/**
+ * @typedef {Object} EventWireMessage
+ * @property {"event"} type
+ * @property {string} [namespace]
+ * @property {string} name
+ * @property {unknown} data
+ */
+
+
+// USER TYPE BOUNDS
+
+/**
+ * @typedef {Object} AllowedMessages
+ * classes {@link TransactionManager} and {@link Namespace} accept a generic
+ * argument of this shape that allows the user to type the payload of messages
+ * (commands and events) that travel through the transport. types are given
+ * separately for both directions.
+ *
+ * **note:** setting this only assumes a particular type for messages, it
+ * doesn't cause any validation to be performed, you as the user are still
+ * responsible for this (strongly recommended if messages come from an
+ * untrusted source).
+ * 
+ * @property {AllowedMessagesDirection} rx - allowed incoming messages
+ * @property {AllowedMessagesDirection} tx - allowed outgoing messages (fully enforcing these types would require an API change, right now a best effort is made)
+ */
+
+/**
+ * @typedef {Object} AllowedMessagesDirection
+ * messages allowed to flow in one direction
+ * @property {Command} cmd - allowed commands
+ * @property {Event} event - allowed events
+ * @see AllowedMessages
+ */
+
+/**
+ * @typedef {Object} Command
+ * object produced for `cmd` (incoming command) events. user code must handle
+ * the command described by `namespace`, `name` and `data`, and then call
+ * `accept` or `reject` with the response payload. it is the user's responsibility
+ * to ensure only a single call to one of the functions happens.
+ *
+ * this is a generic bound (see {@link AllowedMessages}) that the user is
+ * expected to specialize; the `accept` and `reject` functions accept `never`
+ * because of this (since function arguments are contravariant). if no
+ * specialization is provided, the default ({@link UnknownCommand}) accepts `unknown`.
+ *
+ * @property {string} [namespace] - namespace through which command was sent
+ * @property {string} name - command name
+ * @property {unknown} data - command payload
+ * @property {(data: never) => void} accept - function called to send a successful response to the command
+ * @property {(data: never) => void} reject - function called to send an error response to the command
+ */
+
+/**
+ * @typedef {Object} Event
+ * object produced for `cmd` (incoming command) events. user code must handle
+ *
+ * @property {string} [namespace] - namespace through which command was sent
+ * @property {string} name - command name
+ * @property {unknown} data - command payload
+ */
+
+/**
+ * @typedef {Command & {
+ *     accept: (data: unknown) => void,
+ *     reject: (data: unknown) => void,
+ * }} UnknownCommand
+ * default type parameter value for command
+ * @see Command
+ */
+
+/**
+ * @typedef {{
+ *     rx: { cmd: UnknownCommand, event: Event },
+ *     tx: { cmd: UnknownCommand, event: Event },
+ * }} UnknownAllowedMessages
+ */
+
+
+// API IMPLEMENTATION
+
+/**
+ * Single namespace of a {@link TransactionManager}.
+ * If created through {@link TransactionManager.namespace()}, this object sends and receives messages of a particular `namespace` value.
+ *
+ * @template {string} N
+ * @template {AllowedMessages} [TMsg=UnknownAllowedMessages]
+ *
+ * @extends {EventEmitter<{
+ *     cmd:   (cmd:   TMsg['rx']['cmd']   & { namespace: N }) => void,
+ *     event: (event: TMsg['rx']['event'] & { namespace: N }) => void,
+ * }>}
+ */
 class Namespace extends EventEmitter
 {
-	constructor(namespace,tm)
+	constructor(
+		/** @type {N} */ namespace,
+		/** @type {TransactionManager<TMsg>} */ tm)
 	{
 		super();
 		this.namespace = namespace;
 		this.tm = tm;
 	}
 	
-	cmd(name,data) 
+	/**
+	 * send a command to the peer
+	 * @template {TMsg['tx']['cmd']['name']} K
+	 * @returns {Promise<Parameters<(TMsg['tx']['cmd'] & { namespace: N, name: K })['accept']>[0]>}
+	 */
+	cmd(
+		/** @type {K} */ name,
+		/** @type {(TMsg['tx']['cmd'] & { namespace: N, name: K })['data']} */ data)
 	{
 		return this.tm.cmd(name,data,this.namespace);
 	}
 	
-	event(name,data) 
+	/**
+	 * send an event to the peer
+	 * @template {TMsg['tx']['event']['name']} K
+	 */
+	event(
+		/** @type {K} */ name,
+		/** @type {(TMsg['tx']['cmd'] & { namespace: N, name: K })['data']} */ data)
 	{
 		return this.tm.event(name,data,this.namespace);
 	}
@@ -26,18 +166,36 @@ class Namespace extends EventEmitter
 	}
 };
 
+/**
+ * @typedef {Object} Transaction
+ * @property {(data: unknown) => void} resolve
+ * @property {(data: unknown) => void} reject
+ */
+
+/**
+ * A transaction manager wrapping a WebSocket transport.
+ * It is strongly recommended to specify the type parameter, see {@link AllowedMessages}.
+ *
+ * @template {AllowedMessages} [TMsg=UnknownAllowedMessages]
+ *
+ * @extends {EventEmitter<{
+ *     cmd:   (cmd:   TMsg['rx']['cmd']  ) => void,
+ *     event: (event: TMsg['rx']['event']) => void,
+ * }>}
+ */
 class TransactionManager extends EventEmitter
 {
-	constructor(transport)
+	constructor(/** @type {WebSocket} */ transport)
 	{
 		super();
 		this.maxId = 0;
-		this.namespaces = new Map();
-		this.transactions = new Map();
+		this.namespaces = /** @type {Map<string, Namespace<string, TMsg>>} */ (new Map());
+		this.transactions = /** @type {Map<number, Transaction>} */ (new Map());
 		this.transport = transport;
 		
 		//Message event listener
 		this.listener = (msg) => {
+			/** @type {WireMessage} */
 			let message;
 			
 			try {
@@ -58,7 +216,7 @@ class TransactionManager extends EventEmitter
 						name		: message.name,
 						data		: message.data,
 						namespace	: message.namespace,
-						accept		: (data) => {
+						accept		: (/** @type {unknown} */ data) => {
 							//Send response back
 							transport.send(JSON.stringify ({
 								type	 : "response",
@@ -66,7 +224,7 @@ class TransactionManager extends EventEmitter
 								data	 : data
 							}));
 						},
-						reject	: (data) => {
+						reject	: (/** @type {unknown} */ data) => {
 							//Send response back
 							transport.send(JSON.stringify ({
 								type	 : "error",
@@ -148,7 +306,16 @@ class TransactionManager extends EventEmitter
 		this.transport.addListener ? this.transport.addListener("message",this.listener) : this.transport.addEventListener("message",this.listener);
 	}
 	
-	cmd(name,data,namespace) 
+	/**
+	 * send a command to the peer
+	 * @template {string} N
+	 * @template {TMsg['tx']['cmd']['name']} K
+	 * @returns {Promise<Parameters<(TMsg['tx']['cmd'] & { namespace: N, name: K })['accept']>[0]>}
+	 */
+	cmd(
+		/** @type {K} */ name,
+		/** @type {(TMsg['tx']['cmd'] & { namespace: N, name: K })['data']} */ data,
+		/** @type {N | undefined} */ namespace = undefined)
 	{
 		return new Promise((resolve,reject) => {
 			//Check name is correct
@@ -156,6 +323,7 @@ class TransactionManager extends EventEmitter
 				throw new Error("Bad command name");
 
 			//Create command
+			/** @type {CommandWireMessage} */
 			const cmd = {
 				type	: "cmd",
 				transId	: this.maxId++,
@@ -186,13 +354,22 @@ class TransactionManager extends EventEmitter
 		});
 	}
 	
-	event(name,data,namespace) 
+	/**
+	 * send an event to the peer
+	 * @template {string} N
+	 * @template {TMsg['tx']['event']['name']} K
+	 */
+	event(
+		/** @type {K} */ name,
+		/** @type {(TMsg['tx']['cmd'] & { namespace: N, name: K })['data']} */ data,
+		/** @type {N | undefined} */ namespace = undefined)
 	{
 		//Check name is correct
 		if (!name || name.length===0)
 			throw new Error("Bad event name");
 		
 		//Create command
+		/** @type {EventWireMessage} */
 		const event = {
 			type	: "event",
 			name	: name,
@@ -209,10 +386,14 @@ class TransactionManager extends EventEmitter
 
 	}
 	
-	namespace(ns)
+	/**
+	 * @template {string} N
+	 * @returns {Namespace<N, TMsg>}
+	 */
+	namespace(/** @type {N} */ ns)
 	{
 		//Check if we already have them
-		let namespace = this.namespaces.get(ns);
+		let namespace = /** @type {Namespace<N, TMsg>} */ (this.namespaces.get(ns));
 		//If already have it
 		if (namespace) return namespace;
 		//Create one instead
