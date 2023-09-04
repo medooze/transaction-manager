@@ -212,25 +212,26 @@ class TransactionManager extends EventEmitter
 			{
 				case "cmd" :
 					//Create command
+					const { transId } = message;
 					const cmd = {
 						name		: message.name,
 						data		: message.data,
 						namespace	: message.namespace,
 						accept		: (/** @type {unknown} */ data) => {
 							//Send response back
-							transport.send(JSON.stringify ({
+							this._send({
 								type	 : "response",
-								transId	 : message.transId,
+								transId	 : transId,
 								data	 : data
-							}));
+							});
 						},
 						reject	: (/** @type {unknown} */ data) => {
 							//Send response back
-							transport.send(JSON.stringify ({
+							this._send({
 								type	 : "error",
-								transId	 : message.transId,
+								transId	 : transId,
 								data	 : data
-							}));
+							});
 						}
 					};
 					
@@ -306,6 +307,12 @@ class TransactionManager extends EventEmitter
 		this.transport.addListener ? this.transport.addListener("message",this.listener) : this.transport.addEventListener("message",this.listener);
 	}
 	
+	/** @protected */
+	_send(/** @type {WireMessage} */ msg)
+	{
+		this.transport.send(JSON.stringify(msg));
+	}
+
 	/**
 	 * send a command to the peer
 	 * @template {string} N
@@ -334,17 +341,12 @@ class TransactionManager extends EventEmitter
 			if (namespace)
 				//Add it
 				cmd.namespace = namespace;
-			//Serialize
-			const json = JSON.stringify(cmd);
-			//Add callbacks
-			cmd.resolve = resolve;
-			cmd.reject  = reject;
 			//Add to map
-			this.transactions.set(cmd.transId,cmd);
+			this.transactions.set(cmd.transId, { ...cmd, resolve, reject });
 			
 			try {
 				//Send json
-				this.transport.send(json);
+				this._send(cmd);
 			} catch (e) {
 				//delete transacetion
 				this.transactions.delete(cmd.transId);
@@ -379,10 +381,8 @@ class TransactionManager extends EventEmitter
 		if (namespace)
 			//Add it
 			event.namespace = namespace;
-		//Serialize
-		const json = JSON.stringify(event);
 		//Send json
-		this.transport.send(json);
+		this._send(event);
 
 	}
 	
