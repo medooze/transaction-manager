@@ -3,6 +3,12 @@
   "version": "2.1.4",
   "description": "Simple transaction manager for json messages",
   "main": "index.js",
+  "dependencies": {
+    "tiny-typed-emitter": "2.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  },
   "scripts": {
     "test": "node test/index.js",
     "dist": "browserify --standalone TransactionManager index.js -o dist/transaction-manager.js"

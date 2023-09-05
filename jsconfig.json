@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"moduleResolution": "node",
+		"target": "ES2015",
+		"downlevelIteration": true,
+		"checkJs": true,
+		"strict": true,
+		"noImplicitAny": true
+	},
+	"include": [
+		"index.js"
+	]
+}
