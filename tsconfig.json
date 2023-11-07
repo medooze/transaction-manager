@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+		"moduleResolution": "node",
+		"lib": ["ES2018"],
+		"target": "ES2018",
+		"module": "CommonJS",
+		"downlevelIteration": true,
+		"allowJs": true,
+		"checkJs": true,
+		"strict": true,
+		"noImplicitAny": true,
+		"outDir": "dist",
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"declarationMap": true
+	},
+	"include": [
+		"index.js"
+	]
+}

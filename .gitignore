@@ -1,3 +1,7 @@
+# TypeScript output
+/dist/*.d.ts
+/dist/*.d.ts.map
+
 # Logs
 logs
 *.log
