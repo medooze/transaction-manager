@@ -115,16 +115,22 @@ const { TypedEmitter: EventEmitter } = require('tiny-typed-emitter');
 // API IMPLEMENTATION
 
 /**
+ * @template {AllowedMessages} TMsg
+ * @template {string} N
+ * @typedef {Object} NamespaceEvents Events emitted by a {@link Namespace} instance.
+ *
+ * @property {(cmd:   TMsg['rx']['cmd']   & { namespace: N }) => void} cmd a command was received from the other peer
+ * @property {(event: TMsg['rx']['event'] & { namespace: N }) => void} event an event was received from the other peer
+ */
+
+/**
  * Single namespace of a {@link TransactionManager}.
  * If created through {@link TransactionManager.namespace()}, this object sends and receives messages of a particular `namespace` value.
  *
  * @template {string} N
  * @template {AllowedMessages} [TMsg=UnknownAllowedMessages]
  *
- * @extends {EventEmitter<{
- *     cmd:   (cmd:   TMsg['rx']['cmd']   & { namespace: N }) => void,
- *     event: (event: TMsg['rx']['event'] & { namespace: N }) => void,
- * }>}
+ * @extends {EventEmitter<NamespaceEvents<TMsg, N>>}
  */
 class Namespace extends EventEmitter
 {
@@ -155,7 +161,7 @@ class Namespace extends EventEmitter
 	 */
 	event(
 		/** @type {K} */ name,
-		/** @type {(TMsg['tx']['cmd'] & { namespace: N, name: K })['data']} */ data)
+		/** @type {(TMsg['tx']['event'] & { namespace: N, name: K })['data']} */ data)
 	{
 		return this.tm.event(name,data,this.namespace);
 	}
@@ -173,28 +179,49 @@ class Namespace extends EventEmitter
  */
 
 /**
+ * @template {AllowedMessages} TMsg
+ * @typedef {Object} TransactionManagerEvents Events emitted by a {@link TransactionManager} instance.
+ *
+ * @property {(cmd:   TMsg['rx']['cmd']  ) => void} cmd a command was received from the other peer
+ * @property {(event: TMsg['rx']['event']) => void} event an event was received from the other peer
+ */
+
+/** @typedef {{ type: "binary", binaryData: ArrayBuffer } | { type: "utf8", utf8Data: string } | { data: string | Uint8Array } | string | Uint8Array} TransportMessage */
+
+/** @typedef {(event: "message", listener: (msg: TransportMessage) => void) => void} TransportEventMethod */
+
+/**
+ * @typedef {(
+ *   { send(data: string): void } & (
+ *     { addEventListener: TransportEventMethod, removeEventListener: TransportEventMethod } |
+ *     { addListener: TransportEventMethod, removeListener: TransportEventMethod }
+ *   )
+ * )} Transport
+ *
+ * interface of compatible transports that can be passed to a {@link TransactionManager}
+ * instance. this includes, but is not limited to, websockets.
+ */
+
+/**
  * A transaction manager wrapping a WebSocket transport.
  * It is strongly recommended to specify the type parameter, see {@link AllowedMessages}.
  *
  * @template {AllowedMessages} [TMsg=UnknownAllowedMessages]
  *
- * @extends {EventEmitter<{
- *     cmd:   (cmd:   TMsg['rx']['cmd']  ) => void,
- *     event: (event: TMsg['rx']['event']) => void,
- * }>}
+ * @extends {EventEmitter<TransactionManagerEvents<TMsg>>}
  */
 class TransactionManager extends EventEmitter
 {
-	constructor(/** @type {WebSocket} */ transport)
+	constructor(/** @type {Transport} */ transport)
 	{
 		super();
 		this.maxId = 0;
 		this.namespaces = /** @type {Map<string, Namespace<string, TMsg>>} */ (new Map());
 		this.transactions = /** @type {Map<number, Transaction>} */ (new Map());
-		this.transport = transport;
-		
+		this.transport = /** @type {any} */ (transport);
+
 		//Message event listener
-		this.listener = (msg) => {
+		this.listener = (/** @type {any} */ msg) => {
 			/** @type {WireMessage} */
 			let message;
 			
@@ -363,7 +390,7 @@ class TransactionManager extends EventEmitter
 	 */
 	event(
 		/** @type {K} */ name,
-		/** @type {(TMsg['tx']['cmd'] & { namespace: N, name: K })['data']} */ data,
+		/** @type {(TMsg['tx']['event'] & { namespace: N, name: K })['data']} */ data,
 		/** @type {N | undefined} */ namespace = undefined)
 	{
 		//Check name is correct
